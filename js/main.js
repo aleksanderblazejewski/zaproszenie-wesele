@@ -139,7 +139,7 @@
   /* --- Odsłanianie przy przewijaniu ---------------------------------------------------- */
 
   // kolejne wiersze w jednej grupie dostają małe opóźnienie
-  document.querySelectorAll('.program-list, .info-list, .places-grid').forEach(function (group) {
+  document.querySelectorAll('.info-list, .places-grid').forEach(function (group) {
     Array.prototype.forEach.call(group.querySelectorAll('[data-reveal]'), function (el, i) {
       el.style.setProperty('--d', (i % 4) * 0.12 + 's');
     });
@@ -328,7 +328,7 @@
   var EVENT = {
     title: 'Ślub i wesele Emilii i Olka',
     details: '15:00 Ceremonia: Parafia pw. Przemienienia Pańskiego, Opławiec, Bydgoszcz\n' +
-             '17:15 Wesele: Dwór Hulanka, ul. Pawłówek 6, 85-438 Bydgoszcz\n\n' +
+             'Wesele: Dwór Hulanka, ul. Pawłówek 6, 85-438 Bydgoszcz\n\n' +
              'Prosimy o odpowiedź do 1 maja 2027.',
     location: 'Parafia pw. Przemienienia Pańskiego, Opławiec, Bydgoszcz',
     start: '20270808T130000Z',

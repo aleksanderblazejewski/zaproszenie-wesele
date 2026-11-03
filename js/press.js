@@ -251,7 +251,7 @@
   // albo powrót spoza ekranu od dołu z ponad 1,5 ekranu w tym oknie (do przodu wjazd zawsze gra)
   var TRAVEL_MS = 600, TRAVEL_VH = 2.5;
 
-  var ph = { h: -1, goal: 0, vel: 0, dir: 1, back: 0, lastY: 0, lastT: -1e9, offT: -1e9, comp: 1, lag: 1, latch: -1, dwellAt: -1, dwellLeft: 0 };
+  var ph = { h: -1, goal: 0, vel: 0, dir: 1, back: 0, lastY: 0, lastT: -1e9, offT: -1e9, comp: 1, lag: 1, latch: -1, dwellAt: -1, dwellLeft: 0, rested: false };
   var trail = [], trailSum = 0;
 
   function beatAt(p, dir) {
@@ -268,6 +268,10 @@
   function restFor(T, dir) {
     var q = beatPos(T, dir);
     return (q.g >= q.gIn) === (dir > 0) ? q.B.b : q.B.a;
+  }
+  function restAtOrAbove(h) {
+    for (var i = 0; i < RESTS.length; i++) if (RESTS[i] >= h - 1e-6) return RESTS[i];
+    return 1;
   }
   // zaległość w ms nominalnych od h do celu, z postojami po drodze
   function backlog(h, goal, dir) {
@@ -303,7 +307,9 @@
     // (w trakcie przejazdu odbitka nie staje w powietrzu: zostaje na arkuszu albo leży w galerii,
     // po tej stronie, z której dalszy takt pójdzie w kierunku przewijania; po zatrzymaniu zwykły spoczynek)
     if (ph.h < 0 || travel || Math.abs(dy) > JUMP_VH * m.vh || m.off) {
-      ph.h = restFor(T, ph.dir);
+      // głowica nigdy nie cofa się: odbita odbitka zostaje w galerii
+      var rh = restFor(T, ph.dir);
+      ph.h = ph.h < 0 ? rh : Math.max(ph.h, rh);
       if (travel && dy && ph.h === 0.7) ph.h = ph.dir > 0 ? 0.56 : 1;
       ph.goal = ph.h; ph.vel = 0; ph.comp = ph.lag = 1; ph.latch = -1; ph.dwellLeft = 0;
       ph.dwellAt = RESTS.indexOf(ph.h);
@@ -311,18 +317,24 @@
     }
 
     // cel: pierwsze 20% taktu idzie za przewijaniem, potem takt jest przesądzony (z histerezą)
-    var dir = ph.dir, q = beatPos(T, dir), k = q.k, B = q.B, g = q.g, gIn = q.gIn;
-    if (ph.latch !== k) ph.latch = -1;
-    if (g >= gIn) ph.latch = k;
-    var goal;
-    if (ph.latch === k && g > gIn / 2) goal = dir > 0 ? B.b : B.a;
-    else {
-      ph.latch = -1;
-      goal = T;
-      // zatrzymanie przed przesądzeniem: wracamy na spoczynek, z którego takt wyszedł
-      if (idle && g > 0 && g < 1) goal = dir > 0 ? B.a : B.b;
+    // prasa gra tylko do przodu: przewijanie w górę niczego nie cofa, bieżący takt
+    // dochodzi do najbliższego spoczynku (odbitka w powietrzu kończy lot do galerii)
+    var dir = ph.dir, goal;
+    if (dir < 0) {
+      goal = ph.h >= 0.56 ? 1 : restAtOrAbove(ph.h);
+    } else {
+      var q = beatPos(T, dir), k = q.k, B = q.B, g = q.g, gIn = q.gIn;
+      if (ph.latch !== k) ph.latch = -1;
+      if (g >= gIn) ph.latch = k;
+      if (ph.latch === k && g > gIn / 2) goal = B.b;
+      else {
+        ph.latch = -1;
+        goal = T;
+        // zatrzymanie przed przesądzeniem: takt i tak dochodzi do końca (bez cofania)
+        if (idle && g > 0 && g < 1) goal = B.b;
+      }
     }
-    ph.goal = goal;
+    ph.goal = goal = Math.max(goal, ph.h);
 
     if (ph.dwellAt >= 0 && ph.h !== RESTS[ph.dwellAt]) ph.dwellAt = -1;
     if (ph.dwellLeft > 0) { ph.dwellLeft -= dt; return idle; }
@@ -330,8 +342,10 @@
 
     // tempo: nominalne; przy dużej zaległości jednolicie szybciej, nie mniej niż BEAT_FLOOR
     // (kompresja tylko maleje w trakcie biegu, więc bieg nie wydłuża się w nieskończoność)
-    var R = backlog(ph.h, goal, dir);
-    var c = R > MAX_LAG ? Math.max(BEAT_FLOOR, MAX_LAG / R) : 1;
+    var R = backlog(ph.h, goal, 1);
+    // strona stoi na końcu sceny: resztę gramy w krótszym oknie, żeby nie kazać czekać
+    var ML = hold.on ? HOLD_LAG : MAX_LAG;
+    var c = R > ML ? Math.max(BEAT_FLOOR, ML / R) : 1;
     if (c < ph.lag) ph.lag = c;
     // prasa zgaszona wyjściem: niewidoczne takty 1-3 przebiegamy szybciej, do 5×
     if (dir > 0 && m.xo > 0 && ph.h < 0.56) c = Math.min(c, Math.max(0.2, 1 - m.xo));
@@ -459,10 +473,16 @@
     var xo = m.xo;
     var xi = eOut(seg(u, 0.22, 0.4));
     var A = Math.min(1 - eIO(seg(p, 0.6, 0.68)), 1 - xo);
-    setIf(head, '--note', (1 - seg(p, 0.6, 0.66)).toFixed(3));
-    setIf(head, '--head', Math.min(1 - seg(p, 0.62, 0.7), 1 - xo).toFixed(3));
+    var H = Math.min(1 - seg(p, 0.62, 0.7), 1 - xo);
+    // po wylądowaniu galeria zostaje: przy powrocie siatka zsuwa się jak arkusz
+    // i odsłania prasę w spoczynku od góry (rycina przycięta tuż nad siatką, bez nakładania)
+    var cut = ph.rested && m.g1 ? Math.min(m.ar.height, m.ar.bottom - m.g1.top + 28) : 0;
+    setIf(art, 'clip-path', cut > 0 ? 'inset(0 0 ' + cut.toFixed(0) + 'px 0)' : '');
+    setIf(head, '--note', Math.min(1 - seg(p, 0.6, 0.66), H).toFixed(3));
+    setIf(head, '--head', H.toFixed(3));
     setIf(art, '--art', A.toFixed(3));
-    var G = Math.max(eOut(seg(p, 0.7, 0.84)), xi);
+    // po wylądowaniu galeria już jest: nie gaśnie przy powrocie przez scenę
+    var G = ph.rested ? 1 : Math.max(eOut(seg(p, 0.7, 0.84)), xi);
     setIf(grid, '--grid', G.toFixed(3));
     // niewidoczna siatka nie przyjmuje stuknięć (g1 ma własne --g1-events)
     setIf(grid, '--grid-events', G >= 0.5 ? 'auto' : 'none');
@@ -528,19 +548,102 @@
       : '');
 
     // podmiana na prawdziwe zdjęcie galerii przy identycznej geometrii
-    var landed = p >= 0.985 ? 1 : 0;
+    var landed = p >= 0.985 || ph.rested ? 1 : 0;
     setIf(target, '--landed', String(landed));
     setIf(target, '--g1-events', landed ? 'auto' : 'none');
+  }
+
+  /* --- przytrzymanie na końcu sceny ------------------------------------------
+     Odbitka ląduje, zanim strona pójdzie dalej. Na ekran przed końcem sceny (gdy
+     odbitka jeszcze nie osiadła) uzbrajamy słuchacze: krok, który przeskoczyłby
+     koniec sceny, sami dowozimy dokładnie do krawędzi. Na krawędzi przewijanie
+     stoi (overflow: hidden, bez odbicia i cofania), aż odbitka wyląduje
+     (najdłużej HOLD_MAX). W górę zawsze można. Poza tym słuchacze nie istnieją. */
+  var LAND = 0.985, HOLD_MAX = 4000, HOLD_LAG = 1500;
+  var hold = { armed: false, on: false, up: false, end: 0, t: 0, ty: 0 };
+  var NOPASS = { passive: false };
+  var root = document.documentElement;
+
+  function toEnd(e, d) {
+    var y = window.pageYOffset;
+    if (!hold.on && y + d < hold.end - 0.5) return;
+    e.preventDefault();
+    if (y < hold.end - 0.5) {
+      window.scrollTo({ top: hold.end, behavior: hold.end - y > 48 ? 'smooth' : 'instant' });
+    }
+  }
+  // ruch w górę zwalnia przytrzymanie od razu (odbitka i tak doleci)
+  function goUp() { hold.up = true; setHold(false, 0); }
+  function onWheel(e) {
+    if (e.deltaY < 0) goUp();
+    if (e.deltaY <= 0) return;
+    var d = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? window.innerHeight : 1);
+    // zapas na pęd poprzedniego kroku kółka, który jeszcze trwa
+    toEnd(e, 2 * d);
+  }
+  function onTouchStart(e) { hold.ty = e.touches[0].clientY; }
+  function onTouchMove(e) {
+    var cy = e.touches[0].clientY, d = hold.ty - cy;
+    hold.ty = cy;
+    if (d < 0) goUp();
+    // palec w górę = strona w dół; zapas na pęd po puszczeniu
+    if (d > 0) toEnd(e, 3 * d);
+  }
+  var KEY_STEP = { ' ': 0.9, Spacebar: 0.9, PageDown: 0.9, End: 99, ArrowDown: 0.1 };
+  function onKey(e) {
+    var t = e.target;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    if (e.key === 'ArrowUp' || e.key === 'PageUp' || e.key === 'Home' || (e.key === ' ' && e.shiftKey)) goUp();
+    var k = KEY_STEP[e.key];
+    if (k && !(e.key === ' ' && e.shiftKey)) toEnd(e, k * window.innerHeight + 40);
+  }
+  function arm(on) {
+    if (on === hold.armed) return;
+    hold.armed = on;
+    var f = on ? 'addEventListener' : 'removeEventListener';
+    window[f]('wheel', onWheel, NOPASS);
+    window[f]('touchstart', onTouchStart, { passive: true });
+    window[f]('touchmove', onTouchMove, NOPASS);
+    window[f]('keydown', onKey);
+  }
+  function setHold(on, now) {
+    if (on === hold.on) return;
+    hold.on = on;
+    hold.t = now;
+    root.classList.toggle('press-hold', on);
+  }
+  function updateHold(now, m) {
+    var pending = ph.h >= 0 && ph.h < LAND && !m.off;
+    hold.end = Math.round(m.y + m.pr.bottom - m.vh);
+    arm(pending && ph.dir > 0 && hold.end - m.y < m.vh);
+    if (!pending) hold.up = false;
+    if (!hold.on) {
+      if (hold.armed && !hold.up && m.y >= hold.end - 0.5) setHold(true, now);
+    } else if (!pending || now - hold.t > HOLD_MAX) {
+      setHold(false, now);
+      arm(false);
+    }
   }
 
   function loop(now) {
     raf = 0;
     var m = readTarget();
+    // pęd przewijania (pasek, inercja) mógł minąć koniec sceny: wracamy na niego,
+    // a głowica nie widzi tego jako ruchu w górę
+    if (hold.on && m.y > hold.end + 0.5) {
+      window.scrollTo({ top: hold.end, behavior: 'instant' });
+      ph.lastY = hold.end;
+      m = readTarget();
+    }
     var dt = Math.min(64, now - (last || now));
     last = now;
     var idle = advance(now, dt, m);
-    render(ph.h, m);
-    if (ph.h !== ph.goal || ph.dwellLeft > 0 || m.e !== lastE || !idle) {
+    updateHold(now, m);
+    // po wylądowaniu, gdy scena zniknie z widoku (tam obie wersje wyglądają tak samo),
+    // prasa wraca do spoczynku: przy powrocie stoi gotowa, a odbitka zostaje w galerii
+    if (ph.h >= LAND && (m.off || m.vh - m.pr.bottom >= 0.4 * m.vh)) ph.rested = true;
+    render(ph.rested ? 0 : ph.h, m);
+    if (hold.on || ph.h !== ph.goal || ph.dwellLeft > 0 || m.e !== lastE || !idle) {
       lastE = m.e;
       raf = requestAnimationFrame(loop);
     } else {

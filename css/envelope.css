@@ -99,9 +99,10 @@
 .env-bottom::before,
 .env-flap-out::before {
   background:
+    var(--paper-laid) center / 200px,
     var(--paper-noise) center / 140px,
     var(--env-paper, #FFFFFF);
-  background-blend-mode: soft-light, normal;
+  background-blend-mode: multiply, soft-light, normal;
 }
 
 /* Strona adresowa */
@@ -184,8 +185,8 @@
   position: absolute;
   inset: 3.2cqw 3.2cqw 0;
   background:
-    repeating-linear-gradient(45deg, rgba(212, 188, 138, 0.16) 0 1px, transparent 1px 11px),
-    repeating-linear-gradient(-45deg, rgba(212, 188, 138, 0.16) 0 1px, transparent 1px 11px);
+    /* podszewka we wzór kaszmirski (paisley), złoto na czerni */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' fill='none' stroke='rgb(212,188,138)' stroke-opacity='.42' stroke-width='2.4'%3E%3Cg transform='translate(16 18) rotate(-18) scale(0.24) translate(-30 -52)'%3E%3Cpath d='M48 8C53 22 57 40 57 62C57 83 44 97 28 97C12 97 3 85 3 70C3 52 18 42 30 36C40 31 46 22 48 8Z'/%3E%3Cpath d='M46 24C49 37 50 50 50 64C50 79 41 89 28 89C17 89 11 81 11 70C11 57 22 50 32 45C39 41 43 34 46 24Z'/%3E%3Ccircle cx='30' cy='69' r='6'/%3E%3C/g%3E%3Cg transform='translate(48 50) rotate(162) scale(0.24) translate(-30 -52)'%3E%3Cpath d='M48 8C53 22 57 40 57 62C57 83 44 97 28 97C12 97 3 85 3 70C3 52 18 42 30 36C40 31 46 22 48 8Z'/%3E%3Cpath d='M46 24C49 37 50 50 50 64C50 79 41 89 28 89C17 89 11 81 11 70C11 57 22 50 32 45C39 41 43 34 46 24Z'/%3E%3Ccircle cx='30' cy='69' r='6'/%3E%3C/g%3E%3Ccircle cx='48' cy='14' r='1.2' fill='rgb(212,188,138)' fill-opacity='.5' stroke='none'/%3E%3Ccircle cx='16' cy='48' r='1.2' fill='rgb(212,188,138)' fill-opacity='.5' stroke='none'/%3E%3C/svg%3E") center / 12cqw;
 }
 .env-inside::after {
   content: "";
@@ -204,9 +205,10 @@
   height: 88%;
   z-index: 2;
   background:
+    var(--paper-laid) center / 200px,
     var(--paper-noise) center / 140px,
     #FFFFFF;
-  background-blend-mode: soft-light, normal;
+  background-blend-mode: multiply, soft-light, normal;
   box-shadow: 0 0 0 rgba(23, 22, 20, 0);
   transition:
     transform 2.6s cubic-bezier(0.5, 0.02, 0.22, 1),
