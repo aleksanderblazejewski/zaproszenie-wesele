@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Emilia & Olek · logika strony
+   Emilia & Aleksander · logika strony
    ========================================================================== */
 
 (function () {
@@ -326,7 +326,7 @@
   /* --- Kalendarz ------------------------------------------------------------------------------- */
 
   var EVENT = {
-    title: 'Ślub i wesele Emilii i Olka',
+    title: 'Ślub i wesele Emilii i Aleksandra',
     details: '15:00 Ceremonia: Parafia pw. Przemienienia Pańskiego, Opławiec, Bydgoszcz\n' +
              'Wesele: Dwór Hulanka, ul. Pawłówek 6, 85-438 Bydgoszcz\n\n' +
              'Prosimy o odpowiedź do 1 maja 2027.',
@@ -354,7 +354,7 @@
       function esc(s) { return s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;'); }
       var stamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
       var ics = [
-        'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Emilia i Olek//Zaproszenie//PL', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+        'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Emilia i Aleksander//Zaproszenie//PL', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
         'BEGIN:VEVENT',
         'UID:slub-emilia-olek-20270808@zaproszenie',
         'DTSTAMP:' + stamp,
@@ -368,7 +368,7 @@
       var url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
       var a = document.createElement('a');
       a.href = url;
-      a.download = 'Slub-Emilia-i-Olek-2027.ics';
+      a.download = 'Slub-Emilia-i-Aleksander-2027.ics';
       document.body.appendChild(a);
       a.click();
       a.remove();

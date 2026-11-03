@@ -1,7 +1,7 @@
 # Instrukcja personalizacji zaproszenia ślubnego
 
 ## 1. Para Młoda i Treści
-- Domyślna para: **Emilia i Olek**
+- Domyślna para: **Emilia i Aleksander**
 - Domyślna data: **08 sierpnia 2027 (Niedziela), godz. 15:00**
 - Ceremonia: Parafia pw. Przemienienia Pańskiego w Bydgoszczy (Opławiec)
 - Przyjęcie: Dwór Hulanka, ul. Pawłówek 6, 85-438 Bydgoszcz

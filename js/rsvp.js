@@ -10,7 +10,7 @@
 
   // DO UZUPEŁNIENIA przez Parę Młodą: numer w formacie 48XXXXXXXXX (bez +), e-mail.
   // Puste pole ukrywa dany przycisk; zostaje zawsze "Kopiuj treść odpowiedzi".
-  var COUPLE = { whatsapp: '', sms: '', email: '', name: 'Emilia i Olek', nameTo: 'Emilii i Olka' };
+  var COUPLE = { whatsapp: '', sms: '', email: '', name: 'Emilia i Aleksander', nameTo: 'Emilii i Aleksandra' };
 
   var STORAGE_KEY = 'emilia-olek-rsvp-2027';
 
@@ -38,12 +38,12 @@
 
   var LEAD_PRE = doneLead.innerHTML;
   // bez kanałów kopiowanie jest jedyną drogą: jedno zdanie zamiast leadu i notatki
-  var LEAD_PRE_COPY = '<strong>Ostatni krok:</strong> skopiujcie treść i wyślijcie ją Emilii lub Olkowi w dowolnej wiadomości. Dopiero wtedy do nas dotrze.';
+  var LEAD_PRE_COPY = '<strong>Ostatni krok:</strong> skopiujcie treść i wyślijcie ją Emilii lub Aleksandrowi w dowolnej wiadomości. Dopiero wtedy do nas dotrze.';
   var COPY_LABEL = 'Kopiuj treść odpowiedzi';
   var COPY_AGAIN = 'Skopiuj ponownie';
   var LEAD_SENT = 'Jeśli wiadomość nie wyszła, wyślijcie ją ponownie.';
   // skopiowanie to jeszcze nie wysłanie: osobny, uczciwy stan
-  var LEAD_COPIED = '<strong>Ostatni krok:</strong> wklejcie ją teraz w wiadomości do Emilii lub Olka. Dopiero wtedy do\u00A0nas dotrze.';
+  var LEAD_COPIED = '<strong>Ostatni krok:</strong> wklejcie ją teraz w wiadomości do Emilii lub Aleksandra. Dopiero wtedy do\u00A0nas dotrze.';
   var current = null;
 
   // z formy grzecznościowej na kopercie zostawiamy same imiona

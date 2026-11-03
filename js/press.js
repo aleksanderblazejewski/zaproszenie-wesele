@@ -303,10 +303,12 @@
     if (m.off) ph.offT = now;
     var travel = trailSum > (ph.dir < 0 && now - ph.offT < TRAVEL_MS ? JUMP_VH : TRAVEL_VH) * m.vh;
 
-    // skok, przejazd, wczytanie w środku sceny albo scena poza ekranem: od razu spoczynek, bez odtwarzania
+    // wczytanie strony albo scena całkiem poza ekranem (skok z menu, koniec strony): od razu spoczynek.
+    // Szybkie przewijanie przez scenę nie pomija animacji: gra skompresowana, a strona czeka
+    // na końcu sceny (przytrzymanie), aż odbitka wyląduje
     // (w trakcie przejazdu odbitka nie staje w powietrzu: zostaje na arkuszu albo leży w galerii,
     // po tej stronie, z której dalszy takt pójdzie w kierunku przewijania; po zatrzymaniu zwykły spoczynek)
-    if (ph.h < 0 || travel || Math.abs(dy) > JUMP_VH * m.vh || m.off) {
+    if (ph.h < 0 || m.off) {
       // głowica nigdy nie cofa się: odbita odbitka zostaje w galerii
       var rh = restFor(T, ph.dir);
       ph.h = ph.h < 0 ? rh : Math.max(ph.h, rh);
@@ -641,7 +643,7 @@
     updateHold(now, m);
     // po wylądowaniu, gdy scena zniknie z widoku (tam obie wersje wyglądają tak samo),
     // prasa wraca do spoczynku: przy powrocie stoi gotowa, a odbitka zostaje w galerii
-    if (ph.h >= LAND && (m.off || m.vh - m.pr.bottom >= 0.4 * m.vh)) ph.rested = true;
+    if (ph.h >= LAND && (m.off || ph.dir < 0 || m.vh - m.pr.bottom >= 0.4 * m.vh)) ph.rested = true;
     render(ph.rested ? 0 : ph.h, m);
     if (hold.on || ph.h !== ph.goal || ph.dwellLeft > 0 || m.e !== lastE || !idle) {
       lastE = m.e;

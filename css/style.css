@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Emilia & Olek · zaproszenie
+   Emilia & Aleksander · zaproszenie
    Świat: komplet papeterii letterpress. Biały bawełniany karton, złota folia
    na krawędziach, ślepe tłoczenie monogramu, jedna czarna karta ze złotem.
    ========================================================================== */
@@ -1504,7 +1504,7 @@ body.intro-on .nav { opacity: 0; pointer-events: none; }
 }
 .done-send-lead { color: var(--ink-2); max-width: 40ch; margin: 0 auto; text-wrap: balance; }
 .done-send-lead strong { color: var(--ink); font-weight: 500; }
-/* kanały jeden pod drugim: pełne etykiety ("WhatsApp do Emilii i Olka") w jednym wierszu */
+/* kanały jeden pod drugim: pełne etykiety ("WhatsApp do Emilii i Aleksandra") w jednym wierszu */
 .done-send-actions {
   margin: 20px auto 0;
   max-width: 420px;
@@ -1584,6 +1584,10 @@ body.intro-on .nav { opacity: 0; pointer-events: none; }
 }
 @media (max-width: 480px) {
   .foot-nav { display: grid; grid-template-columns: repeat(3, auto); justify-content: center; column-gap: 28px; }
+}
+@media (max-width: 360px) {
+  .foot-nav { column-gap: 12px; }
+  .foot-nav a { letter-spacing: 0.04em; }
 }
 .foot-nav a {
   display: inline-flex;
