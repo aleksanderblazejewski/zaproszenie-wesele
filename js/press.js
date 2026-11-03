@@ -472,7 +472,8 @@
     // najpierw gaśnie prasa (xo), potem wchodzi siatka (xi), nawet gdy głowica jest w tyle;
     // nigdy obie naraz; podczas przypięcia u = 0
     var u = clamp((m.vh - m.pr.bottom) / m.vh);
-    var xo = m.xo;
+    // przed wylądowaniem prasa nie gaśnie wyjściem (strona i tak stoi na końcu sceny)
+    var xo = ph.h >= 0 && ph.h < LAND && !ph.rested ? 0 : m.xo;
     var xi = eOut(seg(u, 0.22, 0.4));
     var A = Math.min(1 - eIO(seg(p, 0.6, 0.68)), 1 - xo);
     var H = Math.min(1 - seg(p, 0.62, 0.7), 1 - xo);
@@ -555,57 +556,74 @@
     setIf(target, '--g1-events', landed ? 'auto' : 'none');
   }
 
-  /* --- przytrzymanie na końcu sceny ------------------------------------------
-     Odbitka ląduje, zanim strona pójdzie dalej. Na ekran przed końcem sceny (gdy
-     odbitka jeszcze nie osiadła) uzbrajamy słuchacze: krok, który przeskoczyłby
-     koniec sceny, sami dowozimy dokładnie do krawędzi. Na krawędzi przewijanie
-     stoi (overflow: hidden, bez odbicia i cofania), aż odbitka wyląduje
-     (najdłużej HOLD_MAX). W górę zawsze można. Poza tym słuchacze nie istnieją. */
+  /* --- przytrzymanie: scena prowadzi przewijanie w dół, aż odbitka wyląduje ----
+     Dopóki odbitka nie osiadła w galerii, a scena jest na ekranie, przewijanie w dół
+     (kółko, palec z pędem, klawisze) prowadzi skrypt: płynnie, do celu przyciętego do
+     końca sceny. Przeglądarka nie nadrabia więc kilku kroków naraz i nie przeskakuje
+     za scenę. Na końcu strona stoi (overflow: hidden), aż odbitka wyląduje
+     (najdłużej HOLD_MAX). W górę zawsze natywnie; ruch w górę zwalnia przytrzymanie.
+     Słuchacze istnieją tylko w tym czasie. */
   var LAND = 0.985, HOLD_MAX = 4000, HOLD_LAG = 1500;
-  var hold = { armed: false, on: false, up: false, end: 0, t: 0, ty: 0 };
+  var WHEEL_MS = 110, MOM_DECAY = 0.996, MOM_MIN = 0.03;
+  var hold = { armed: false, on: false, up: false, end: 0, t: 0, ty: 0, tt: 0, v: 0, tgt: -1, mom: 0, upT: 0 };
   var NOPASS = { passive: false };
   var root = document.documentElement;
 
-  function toEnd(e, d) {
-    var y = window.pageYOffset;
-    if (!hold.on && y + d < hold.end - 0.5) return;
-    e.preventDefault();
-    if (y < hold.end - 0.5) {
-      window.scrollTo({ top: hold.end, behavior: hold.end - y > 48 ? 'smooth' : 'instant' });
-    }
+  function driveTo(y) {
+    var base = hold.tgt >= 0 ? hold.tgt : window.pageYOffset;
+    hold.tgt = Math.min(hold.end, Math.max(base, y));
+    hold.mom = 0;
+    kick();
   }
   // ruch w górę zwalnia przytrzymanie od razu (odbitka i tak doleci)
-  function goUp() { hold.up = true; setHold(false, 0); }
+  function goUp() { hold.up = true; hold.upT = performance.now(); hold.tgt = -1; hold.mom = 0; setHold(false, 0); }
   function onWheel(e) {
-    if (e.deltaY < 0) goUp();
-    if (e.deltaY <= 0) return;
+    if (e.deltaY < 0) { goUp(); return; }
+    if (e.deltaY === 0) return;
+    e.preventDefault();
     var d = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? window.innerHeight : 1);
-    // zapas na pęd poprzedniego kroku kółka, który jeszcze trwa
-    toEnd(e, 2 * d);
+    driveTo((hold.tgt >= 0 ? hold.tgt : window.pageYOffset) + d);
   }
-  function onTouchStart(e) { hold.ty = e.touches[0].clientY; }
+  function onTouchStart(e) {
+    hold.ty = e.touches[0].clientY; hold.tt = performance.now(); hold.v = 0; hold.mom = 0; hold.tgt = -1;
+  }
   function onTouchMove(e) {
-    var cy = e.touches[0].clientY, d = hold.ty - cy;
+    var cy = e.touches[0].clientY, d = hold.ty - cy, now = performance.now();
     hold.ty = cy;
-    if (d < 0) goUp();
-    // palec w górę = strona w dół; zapas na pęd po puszczeniu
-    if (d > 0) toEnd(e, 3 * d);
+    if (d < 0) { goUp(); return; }
+    if (d === 0) return;
+    // palec w górę = strona w dół: idziemy 1:1 za palcem, nie dalej niż koniec sceny
+    e.preventDefault();
+    var y = Math.min(hold.end, window.pageYOffset + d);
+    window.scrollTo({ top: y, behavior: 'instant' });
+    var dt = Math.max(8, now - hold.tt);
+    hold.v = 0.7 * hold.v + 0.3 * (d / dt);
+    hold.tt = now;
+    kick();
   }
-  var KEY_STEP = { ' ': 0.9, Spacebar: 0.9, PageDown: 0.9, End: 99, ArrowDown: 0.1 };
+  function onTouchEnd() {
+    // pęd po puszczeniu palca, jak natywny, ale przycięty do końca sceny
+    if (!hold.up && hold.v > MOM_MIN && performance.now() - hold.tt < 120) { hold.mom = hold.v; kick(); }
+  }
+  var KEY_STEP = { ' ': 0.9, Spacebar: 0.9, PageDown: 0.9, End: 99, ArrowDown: 0.12 };
   function onKey(e) {
     var t = e.target;
-    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-    if (e.key === 'ArrowUp' || e.key === 'PageUp' || e.key === 'Home' || (e.key === ' ' && e.shiftKey)) goUp();
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(t.tagName))) return;
+    if (e.key === 'ArrowUp' || e.key === 'PageUp' || e.key === 'Home' || (e.key === ' ' && e.shiftKey)) { goUp(); return; }
     var k = KEY_STEP[e.key];
-    if (k && !(e.key === ' ' && e.shiftKey)) toEnd(e, k * window.innerHeight + 40);
+    if (!k) return;
+    e.preventDefault();
+    driveTo((hold.tgt >= 0 ? hold.tgt : window.pageYOffset) + k * window.innerHeight);
   }
   function arm(on) {
     if (on === hold.armed) return;
     hold.armed = on;
+    if (!on) { hold.tgt = -1; hold.mom = 0; }
     var f = on ? 'addEventListener' : 'removeEventListener';
     window[f]('wheel', onWheel, NOPASS);
     window[f]('touchstart', onTouchStart, { passive: true });
     window[f]('touchmove', onTouchMove, NOPASS);
+    window[f]('touchend', onTouchEnd, { passive: true });
     window[f]('keydown', onKey);
   }
   function setHold(on, now) {
@@ -614,11 +632,29 @@
     hold.t = now;
     root.classList.toggle('press-hold', on);
   }
+  // jeden krok prowadzonego przewijania (kółko/klawisze: wygładzenie do celu; palec: pęd)
+  function driveStep(dt) {
+    if (!hold.armed || (hold.tgt < 0 && hold.mom <= 0)) return false;
+    var y = window.pageYOffset, ny = y;
+    if (hold.tgt >= 0) {
+      ny = y + (hold.tgt - y) * Math.min(1, dt / WHEEL_MS * 2.2);
+      if (Math.abs(hold.tgt - ny) < 0.5) { ny = hold.tgt; hold.tgt = -1; }
+    } else {
+      ny = y + hold.mom * dt;
+      hold.mom *= Math.pow(MOM_DECAY, dt);
+      if (hold.mom < MOM_MIN) hold.mom = 0;
+    }
+    if (ny >= hold.end) { ny = hold.end; hold.tgt = -1; hold.mom = 0; }
+    if (Math.abs(ny - y) >= 0.5) window.scrollTo({ top: ny, behavior: 'instant' });
+    return true;
+  }
   function updateHold(now, m) {
     var pending = ph.h >= 0 && ph.h < LAND && !m.off;
     hold.end = Math.round(m.y + m.pr.bottom - m.vh);
-    arm(pending && ph.dir > 0 && hold.end - m.y < m.vh);
-    if (!pending) hold.up = false;
+    // prowadzimy, gdy scena jest na ekranie, a odbitka jeszcze nie osiadła
+    arm(pending && ph.dir > 0 && !hold.up && m.pr.top < m.vh);
+    // koniec przytrzymania albo znów w dół (głowica odwróciła kierunek po DIR_PX): prowadzimy od nowa
+    if (!pending || (hold.up && ph.dir > 0 && now - hold.upT > 450)) hold.up = false;
     if (!hold.on) {
       if (hold.armed && !hold.up && m.y >= hold.end - 0.5) setHold(true, now);
     } else if (!pending || now - hold.t > HOLD_MAX) {
@@ -629,23 +665,24 @@
 
   function loop(now) {
     raf = 0;
+    var dt = Math.min(64, now - (last || now));
+    last = now;
+    var driving = driveStep(dt);
     var m = readTarget();
-    // pęd przewijania (pasek, inercja) mógł minąć koniec sceny: wracamy na niego,
+    // pasek przewijania albo inna droga minęła koniec sceny: wracamy na niego,
     // a głowica nie widzi tego jako ruchu w górę
-    if (hold.on && m.y > hold.end + 0.5) {
+    if ((hold.on || hold.armed) && ph.h < LAND && m.y > hold.end + 0.5 && hold.end > 0) {
       window.scrollTo({ top: hold.end, behavior: 'instant' });
       ph.lastY = hold.end;
       m = readTarget();
     }
-    var dt = Math.min(64, now - (last || now));
-    last = now;
     var idle = advance(now, dt, m);
     updateHold(now, m);
     // po wylądowaniu, gdy scena zniknie z widoku (tam obie wersje wyglądają tak samo),
     // prasa wraca do spoczynku: przy powrocie stoi gotowa, a odbitka zostaje w galerii
     if (ph.h >= LAND && (m.off || ph.dir < 0 || m.vh - m.pr.bottom >= 0.4 * m.vh)) ph.rested = true;
     render(ph.rested ? 0 : ph.h, m);
-    if (hold.on || ph.h !== ph.goal || ph.dwellLeft > 0 || m.e !== lastE || !idle) {
+    if (driving || hold.on || ph.h !== ph.goal || ph.dwellLeft > 0 || m.e !== lastE || !idle) {
       lastE = m.e;
       raf = requestAnimationFrame(loop);
     } else {
