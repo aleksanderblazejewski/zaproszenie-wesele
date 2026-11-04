@@ -556,133 +556,61 @@
     setIf(target, '--g1-events', landed ? 'auto' : 'none');
   }
 
-  /* --- przytrzymanie: scena prowadzi przewijanie w dół, aż odbitka wyląduje ----
-     Dopóki odbitka nie osiadła w galerii, a scena jest na ekranie, przewijanie w dół
-     (kółko, palec z pędem, klawisze) prowadzi skrypt: płynnie, do celu przyciętego do
-     końca sceny. Przeglądarka nie nadrabia więc kilku kroków naraz i nie przeskakuje
-     za scenę. Na końcu strona stoi (overflow: hidden), aż odbitka wyląduje
-     (najdłużej HOLD_MAX). W górę zawsze natywnie; ruch w górę zwalnia przytrzymanie.
-     Słuchacze istnieją tylko w tym czasie. */
+  /* --- ściana na końcu sceny --------------------------------------------------
+     Dopóki odbitka nie osiadła w galerii, strona fizycznie kończy się na końcu sceny:
+     sekcja galerii jest przycięta do dołu sceny, a stopka schowana (wszystko poniżej
+     ekranu, więc nic nie skacze). Każdy pęd, kółko, klawisz czy pasek zatrzymuje się
+     więc na krawędzi jak na dole strony; nie ma czego przeskoczyć ani z czym walczyć
+     (Safari na iOS nie pozwala zatrzymać pędu ze skryptu). Po wylądowaniu ściana
+     znika, a reszta strony pojawia się pod ekranem. HOLD_MAX to bezpiecznik, gdyby
+     głowica utknęła na końcu sceny. */
   var LAND = 0.985, HOLD_MAX = 4000, HOLD_LAG = 1500;
-  var WHEEL_MS = 110, MOM_DECAY = 0.996, MOM_MIN = 0.03;
-  var hold = { armed: false, on: false, up: false, end: 0, t: 0, ty: 0, tt: 0, v: 0, tgt: -1, mom: 0, upT: 0 };
-  var NOPASS = { passive: false };
+  var hold = { cap: false, on: false, t: 0, h: 0 };
   var root = document.documentElement;
+  var gallerySec = section;
 
-  function driveTo(y) {
-    var base = hold.tgt >= 0 ? hold.tgt : window.pageYOffset;
-    hold.tgt = Math.min(hold.end, Math.max(base, y));
-    hold.mom = 0;
-    kick();
+  function capHeight() {
+    // wysokość sekcji galerii kończąca się dokładnie na dole sceny
+    return press.getBoundingClientRect().bottom - gallerySec.getBoundingClientRect().top;
   }
-  // ruch w górę zwalnia przytrzymanie od razu (odbitka i tak doleci)
-  function goUp() { hold.up = true; hold.upT = performance.now(); hold.tgt = -1; hold.mom = 0; setHold(false, 0); }
-  function onWheel(e) {
-    if (e.deltaY < 0) { goUp(); return; }
-    if (e.deltaY === 0) return;
-    e.preventDefault();
-    var d = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? window.innerHeight : 1);
-    driveTo((hold.tgt >= 0 ? hold.tgt : window.pageYOffset) + d);
-  }
-  function onTouchStart(e) {
-    hold.ty = e.touches[0].clientY; hold.tt = performance.now(); hold.v = 0; hold.mom = 0; hold.tgt = -1;
-  }
-  function onTouchMove(e) {
-    var cy = e.touches[0].clientY, d = hold.ty - cy, now = performance.now();
-    hold.ty = cy;
-    if (d < 0) { goUp(); return; }
-    if (d === 0) return;
-    // palec w górę = strona w dół: idziemy 1:1 za palcem, nie dalej niż koniec sceny
-    e.preventDefault();
-    var y = Math.min(hold.end, window.pageYOffset + d);
-    window.scrollTo({ top: y, behavior: 'instant' });
-    var dt = Math.max(8, now - hold.tt);
-    hold.v = 0.7 * hold.v + 0.3 * (d / dt);
-    hold.tt = now;
-    kick();
-  }
-  function onTouchEnd() {
-    // pęd po puszczeniu palca, jak natywny, ale przycięty do końca sceny
-    if (!hold.up && hold.v > MOM_MIN && performance.now() - hold.tt < 120) { hold.mom = hold.v; kick(); }
-  }
-  var KEY_STEP = { ' ': 0.9, Spacebar: 0.9, PageDown: 0.9, End: 99, ArrowDown: 0.12 };
-  function onKey(e) {
-    var t = e.target;
-    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(t.tagName))) return;
-    if (e.key === 'ArrowUp' || e.key === 'PageUp' || e.key === 'Home' || (e.key === ' ' && e.shiftKey)) { goUp(); return; }
-    var k = KEY_STEP[e.key];
-    if (!k) return;
-    e.preventDefault();
-    driveTo((hold.tgt >= 0 ? hold.tgt : window.pageYOffset) + k * window.innerHeight);
-  }
-  function arm(on) {
-    if (on === hold.armed) return;
-    hold.armed = on;
-    if (!on) { hold.tgt = -1; hold.mom = 0; }
-    var f = on ? 'addEventListener' : 'removeEventListener';
-    window[f]('wheel', onWheel, NOPASS);
-    window[f]('touchstart', onTouchStart, { passive: true });
-    window[f]('touchmove', onTouchMove, NOPASS);
-    window[f]('touchend', onTouchEnd, { passive: true });
-    window[f]('keydown', onKey);
-  }
-  function setHold(on, now) {
-    if (on === hold.on) return;
-    hold.on = on;
-    hold.t = now;
-    root.classList.toggle('press-hold', on);
-  }
-  // jeden krok prowadzonego przewijania (kółko/klawisze: wygładzenie do celu; palec: pęd)
-  function driveStep(dt) {
-    if (!hold.armed || (hold.tgt < 0 && hold.mom <= 0)) return false;
-    var y = window.pageYOffset, ny = y;
-    if (hold.tgt >= 0) {
-      ny = y + (hold.tgt - y) * Math.min(1, dt / WHEEL_MS * 2.2);
-      if (Math.abs(hold.tgt - ny) < 0.5) { ny = hold.tgt; hold.tgt = -1; }
-    } else {
-      ny = y + hold.mom * dt;
-      hold.mom *= Math.pow(MOM_DECAY, dt);
-      if (hold.mom < MOM_MIN) hold.mom = 0;
+  function setCap(on) {
+    if (on === hold.cap) return;
+    hold.cap = on;
+    if (on) {
+      hold.h = Math.round(capHeight());
+      gallerySec.style.setProperty('--cap', hold.h + 'px');
     }
-    if (ny >= hold.end) { ny = hold.end; hold.tgt = -1; hold.mom = 0; }
-    if (Math.abs(ny - y) >= 0.5) window.scrollTo({ top: ny, behavior: 'instant' });
-    return true;
+    root.classList.toggle('press-cap', on);
+    if (on) {
+      // dokładnie: maksymalne przewinięcie = koniec sceny (poprawka o resztę strony pod galerią)
+      var want = Math.round(window.pageYOffset + press.getBoundingClientRect().bottom - window.innerHeight);
+      var max = document.documentElement.scrollHeight - window.innerHeight;
+      if (Math.abs(max - want) > 0.5) {
+        hold.h = Math.max(0, hold.h + want - max);
+        gallerySec.style.setProperty('--cap', hold.h + 'px');
+      }
+    }
   }
   function updateHold(now, m) {
-    var pending = ph.h >= 0 && ph.h < LAND && !m.off;
-    hold.end = Math.round(m.y + m.pr.bottom - m.vh);
-    // prowadzimy, gdy scena jest na ekranie, a odbitka jeszcze nie osiadła
-    arm(pending && ph.dir > 0 && !hold.up && m.pr.top < m.vh);
-    // koniec przytrzymania albo znów w dół (głowica odwróciła kierunek po DIR_PX): prowadzimy od nowa
-    if (!pending || (hold.up && ph.dir > 0 && now - hold.upT > 450)) hold.up = false;
-    if (!hold.on) {
-      if (hold.armed && !hold.up && m.y >= hold.end - 0.5) setHold(true, now);
-    } else if (!pending || now - hold.t > HOLD_MAX) {
-      setHold(false, now);
-      arm(false);
-    }
+    var pending = ph.h >= 0 && ph.h < LAND;
+    var atEnd = pending && !m.off && m.pr.bottom <= m.vh + 1;
+    if (atEnd && !hold.on) { hold.on = true; hold.t = now; }
+    if (!atEnd) hold.on = false;
+    setCap(pending && !(hold.on && now - hold.t > HOLD_MAX));
   }
 
   function loop(now) {
     raf = 0;
     var dt = Math.min(64, now - (last || now));
     last = now;
-    var driving = driveStep(dt);
     var m = readTarget();
-    // pasek przewijania albo inna droga minęła koniec sceny: wracamy na niego,
-    // a głowica nie widzi tego jako ruchu w górę
-    if ((hold.on || hold.armed) && ph.h < LAND && m.y > hold.end + 0.5 && hold.end > 0) {
-      window.scrollTo({ top: hold.end, behavior: 'instant' });
-      ph.lastY = hold.end;
-      m = readTarget();
-    }
     var idle = advance(now, dt, m);
     updateHold(now, m);
     // po wylądowaniu, gdy scena zniknie z widoku (tam obie wersje wyglądają tak samo),
     // prasa wraca do spoczynku: przy powrocie stoi gotowa, a odbitka zostaje w galerii
     if (ph.h >= LAND && (m.off || ph.dir < 0 || m.vh - m.pr.bottom >= 0.4 * m.vh)) ph.rested = true;
     render(ph.rested ? 0 : ph.h, m);
-    if (driving || hold.on || ph.h !== ph.goal || ph.dwellLeft > 0 || m.e !== lastE || !idle) {
+    if (hold.on || ph.h !== ph.goal || ph.dwellLeft > 0 || m.e !== lastE || !idle) {
       lastE = m.e;
       raf = requestAnimationFrame(loop);
     } else {
@@ -701,6 +629,7 @@
     // non-scaling-stroke: Chrome kreskuje w pikselach ekranu, więc przy rycinie
     // większej niż viewBox kreska pathLength=1 kończyłaby się przed końcem ścieżki
     setIf(art, '--dk', Math.max(1, art.getBoundingClientRect().width / 306).toFixed(3));
+    if (hold.cap) { hold.cap = false; root.classList.remove('press-cap'); setCap(true); }
     kick();
   }
 

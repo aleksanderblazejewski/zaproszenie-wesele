@@ -1635,8 +1635,10 @@ body.intro-on .nav { opacity: 0; pointer-events: none; }
 .lb-frame { display: grid; place-items: center; }
 .lightbox { --lb-h: calc(84dvh - 48px); }
 html.lb-locked, html.lb-locked body { overflow: hidden; }
-/* prasa: strona stoi na końcu sceny, aż odbitka wyląduje w galerii (js/press.js) */
-html.press-hold, html.press-hold body { overflow: hidden; }
+/* prasa: zanim odbitka wyląduje, strona kończy się na dole sceny (js/press.js).
+   Galeria przycięta do sceny (clip: sticky działa dalej), stopka schowana; wszystko pod ekranem. */
+html.press-cap .gallery { height: var(--cap); padding-bottom: 0; overflow: clip; }
+html.press-cap .foot { display: none; }
 .lb-frame img {
   max-width: min(92vw, 1400px);
   max-height: var(--lb-h);
