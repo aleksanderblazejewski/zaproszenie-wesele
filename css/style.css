@@ -1118,6 +1118,12 @@ body.intro-on .nav { opacity: 0; pointer-events: none; }
   stroke-linecap: butt;
   stroke-linejoin: round;
   opacity: var(--art, 1);
+  /* własna warstwa kompozytora: przeglądarki w aplikacjach (Messenger, Instagram na iOS)
+     przy szybkim przewijaniu gubiły nieskomponowaną rycinę */
+  transform: translateZ(0);
+  will-change: transform, opacity;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 .press-art path { vector-effect: non-scaling-stroke; }
 .press-art .pc { stroke-width: 1.5px; }

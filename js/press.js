@@ -465,7 +465,7 @@
       inkB: Math.min(0.4, capH / H1) * (SHEET.d1 - SHEET.d0)
     });
     setIf(art, '--flash', flashAmt.toFixed(3));
-    setIf(art, 'transform', stop > 0.001 ? 'translateY(' + (stop * 1.2).toFixed(2) + 'px)' : '');
+    setIf(art, 'transform', stop > 0.001 ? 'translateY(' + (stop * 1.2).toFixed(2) + 'px) translateZ(0)' : '');
 
     // napis pod nagłówkiem ustępuje podpisowi odbitki; prasa gaśnie, zanim pojawi się siatka
     // przewijanie za odpięcie sceny (u = część ekranu za jej końcem) też po kolei:
